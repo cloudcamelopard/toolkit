@@ -1,4 +1,4 @@
-# Toolbox
+# Toolkit
 
 A simple example of how to create a reusable Go module with commonly used tools.
 
@@ -16,4 +16,4 @@ The included tools are:
 
 ## Installation
 
-`go get -u github.com/tsawler/toolbox`
+`go get -u https://github.com/cloudcamelopard/toolkit.git`
