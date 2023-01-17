@@ -118,15 +118,19 @@ func (t *Tools) UploadFiles(r *http.Request, uploadDir string, rename ...bool) (
 				var outfile *os.File
 				defer outfile.Close()
 
-				if outfile, err = os.Create(filepath.Join(uploadDir, uploadedFile.NewFileName)); err != nil {
+				outfile, err = os.Create(filepath.Join(uploadDir, uploadedFile.NewFileName))
+				if err != nil {
 					return nil, err
-				} else {
+				} 
+				defer outfile.Close() // Ronny
+				//else {
+					
 					fileSize, err := io.Copy(outfile, infile)
 					if err != nil {
 						return nil, err
 					}
 					uploadedFile.FileSize = fileSize
-				}
+				//}
 
 				uploadedFiles = append(uploadedFiles, &uploadedFile)
 
