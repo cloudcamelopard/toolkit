@@ -11,9 +11,9 @@ The included tools are:
 - [ ] Download a static file
 - [X] Get a random string of length n
 - [ ] Post JSON to a remote service 
-- [ ] Create a directory, including all parent directories, if it does not already exist
+- [X] Create a directory, including all parent directories, if it does not already exist
 - [ ] Create a URL safe slug from a string
 
 ## Installation
 
-`go get -u https://github.com/cloudcamelopard/toolkit.git`
+`go get -u https://github.com/cloudcamelopard/toolkit`
