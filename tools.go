@@ -1,6 +1,7 @@
 package toolkit
 
 import (
+	"regexp"
 	"io"
 	"path/filepath"
 	"os"
@@ -20,7 +21,7 @@ type Tools struct {
 	AllowedFileTypes []string
 }
 
-// RaondomString returns a string of random characters of length n, using randomStringSource
+// RandomString returns a string of random characters of length n, using randomStringSource
 // as the source for the string
 func (t *Tools) RandomString(n int) string {
 	s, r := make([]rune, n), []rune(randomStringSource)
@@ -39,6 +40,7 @@ type UploadedFile struct {
 	FileSize int64
 }
 
+// UploadOneFile uploads one file to server, directory created if not exist
 func (t *Tools) UploadOneFile(r *http.Request, uploadDir string, rename ...bool) (*UploadedFile, error) {
 	renameFile := true
 	if len(rename) > 0 {
@@ -52,6 +54,7 @@ func (t *Tools) UploadOneFile(r *http.Request, uploadDir string, rename ...bool)
 	return files[0], nil
 }
 
+// UploadFiles uploads one or more file to server, directory created if not exist
 func (t *Tools) UploadFiles(r *http.Request, uploadDir string, rename ...bool) ([]*UploadedFile, error) {
 	renameFile := true
 	if len(rename) > 0 {
@@ -149,7 +152,7 @@ func (t *Tools) UploadFiles(r *http.Request, uploadDir string, rename ...bool) (
 	return uploadedFiles, nil
 }
 
-// CreateDirIfNotExists  creates a directory, and all necessary parents, if it does not exist
+// CreateDirIfNotExists creates a directory, and all necessary parents, if it does not exist
 func (t *Tools) CreateDirIfNotExist(path string) error {
 	const mode = 0755
 	if _, err := os.Stat(path); os.IsNotExist(err) {
@@ -159,5 +162,19 @@ func (t *Tools) CreateDirIfNotExist(path string) error {
 		}
 	}
 	return nil
+}
+
+// Slugify is a (very) simple means of creating a slug from a string
+func (t *Tools) Slugify(s string) (string, error) {
+	if s == "" {
+		return "", errors.New("empty string not permitted")
+	}
+	
+	var rex = regexp.MustCompile(`[^a-z\d]+`)
+	slug := strings.Trim(rex.ReplaceAllString(strings.ToLower(s), "-"), "-")
+	if len(slug) == 0 {
+		return "", errors.New("after removing characters, slug is zero length")
+	}
+	return slug, nil
 }
 
