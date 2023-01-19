@@ -1,6 +1,7 @@
 package toolkit
 
 import (
+	"bytes"
 	"io/ioutil"
 	"net/http"
 	"image"
@@ -212,4 +213,58 @@ func TestTools_DownloadStaticFile(t *testing.T) {
 	}
 }
 
+var jsonTests = []struct {
+	name 			string
+	json 			string
+	errorExpected 	bool
+	maxSize 		int
+	allowUnknown 	bool
+} {
+	{ name: "good json", json: `{"foo":"bar"}`, errorExpected: false, maxSize: 1024, allowUnknown: false },
+	{ name: "badly formatted json", json: `{"foo":}`, errorExpected: true, maxSize: 1024, allowUnknown: false },
+	{ name: "incorrect type", json: `{"foo":33}`, errorExpected: true, maxSize: 1024, allowUnknown: false },
+	{ name: "two json files", json: `{"foo":"bar"}{"alpha":"beta"}`, errorExpected: true, maxSize: 1024, allowUnknown: false },
+	{ name: "empty body", json: ``, errorExpected: true, maxSize: 1024, allowUnknown: false },
+	{ name: "syntax error in json", json: `{"foo": 1"`, errorExpected: true, maxSize: 1024, allowUnknown: false },
+	{ name: "unknown field", json: `{"fooo":"bar"}`, errorExpected: true, maxSize: 1024, allowUnknown: false },
+	{ name: "allow unknown fields in json", json: `{"fooo":"bar"}`, errorExpected: false, maxSize: 1024, allowUnknown: true },
+	{ name: "missing field name", json: `{jack:"bar"}`, errorExpected: true, maxSize: 1024, allowUnknown: true },
+	{ name: "file too large", json: `{"foo":"bar"}`, errorExpected: true, maxSize: 4, allowUnknown: false },
+	{ name: "not json", json: `hello world!`, errorExpected: true, maxSize: 1024, allowUnknown: false },
+}
+
+func TestTools_ReadJSON(t *testing.T) {
+	var testTool Tools
+	
+	for _, e := range jsonTests {
+		// set the max file size
+		testTool.MaxJSONSize = e.maxSize
+
+		// allow/disallow unknown fields
+		testTool.AllowUnknownFields = e.allowUnknown
+
+		// declare a variable to read the decoded JSON into
+		var decodedJSON struct {
+			Foo string `json:"foo"`
+		}
+
+		req, err := http.NewRequest("POST", "/", bytes.NewReader([]byte(e.json)))
+		if err != nil {
+			t.Log("Error:", err)
+		}
+		defer req.Body.Close()
+
+		// create a recorder
+		rr := httptest.NewRecorder()
+
+		err = testTool.ReadJSON(rr, req, &decodedJSON)
+
+		if e.errorExpected && err == nil {
+			t.Errorf("%s: error expected, but none received", e.name)
+		}
+		if !e.errorExpected && err != nil {
+			t.Errorf("%s: error not expected, but one received: %s", e.name, err.Error())
+		}
+	}
+}
 

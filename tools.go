@@ -1,6 +1,7 @@
 package toolkit
 
 import (
+	"encoding/json"
 	"path"
 	"regexp"
 	"io"
@@ -18,8 +19,10 @@ const randomStringSource = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ
 // Tools is the type to instantiat this module. Any variable of this type will have access
 // to all the methods with the receiver *Tools
 type Tools struct {
-	MaxFileSize int
-	AllowedFileTypes []string
+	MaxFileSize 		int
+	AllowedFileTypes 	[]string
+	MaxJSONSize 		int
+	AllowUnknownFields	bool
 }
 
 // RandomString returns a string of random characters of length n, using randomStringSource
@@ -186,5 +189,64 @@ func (t *Tools) DownloadStaticFile(w http.ResponseWriter, r *http.Request, p, fi
 	fp := path.Join(p, file)
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", displayName))
 	http.ServeFile(w, r, fp)
+}
+
+// JSONResponse is the type for sending JSON around
+type JSONResponse struct {
+	Error bool `json:"error"`
+	Message string `json:"message"`
+	Data any `json:"data,omitempty`
+}
+
+func (t *Tools) ReadJSON(w http.ResponseWriter, r *http.Request, data any) error {
+	maxBytes := 1024 * 1024 // one MB
+	if t.MaxJSONSize != 0 {
+		maxBytes = t.MaxJSONSize
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, int64(maxBytes))
+
+	dec := json.NewDecoder(r.Body)
+
+	if !t.AllowUnknownFields {
+		dec.DisallowUnknownFields()
+	}
+
+	err := dec.Decode(data)
+	if err != nil {
+		var syntaxError *json.SyntaxError
+		var unmarshalTypeError *json.UnmarshalTypeError
+		var invalidUnmarshalError *json.InvalidUnmarshalError
+
+		switch {
+		case errors.As(err, &syntaxError):
+			return fmt.Errorf("body contains badly-formed JSON (at character %d)", syntaxError.Offset)
+		case errors.Is(err, io.ErrUnexpectedEOF):
+			return errors.New("body contains badly formed JSON")
+		case errors.As(err, &unmarshalTypeError):
+			if unmarshalTypeError.Field != "" {
+				return fmt.Errorf("body contains incorrect JSON type for field %q", unmarshalTypeError.Field)
+			}
+			return fmt.Errorf("body contains incorrect JSON (at character %d)", unmarshalTypeError.Offset)
+		case errors.Is(err, io.EOF):
+			return errors.New("body must not be empty")
+		case strings.HasPrefix(err.Error(),"json: unknown field"):
+			fieldName := strings.TrimPrefix(err.Error(), "json: unknown field")
+			return fmt.Errorf("body contrains unknown key %s", fieldName)
+		case err.Error() == "http: request body too large":
+			return fmt.Errorf("body must not be larger than %d bytes", maxBytes)
+		case errors.As(err, &invalidUnmarshalError):
+			 return fmt.Errorf("error unmarshalling JSON: %s", err.Error())
+		default:
+			return err
+		}
+	}
+
+	err = dec.Decode(&struct{}{})
+	if err != io.EOF {
+		return errors.New("body must contain only one JSON value")
+	}
+
+	return nil
 }
 
