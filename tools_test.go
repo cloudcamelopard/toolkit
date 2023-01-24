@@ -2,7 +2,6 @@ package toolkit
 
 import (
 	"bytes"
-	"io/ioutil"
 	"net/http"
 	"image"
 	"image/png"
@@ -207,7 +206,7 @@ func TestTools_DownloadStaticFile(t *testing.T) {
 		t.Error("wrong content disposition")
 	}
 
-	_, err := ioutil.ReadAll(res.Body)
+	_, err := io.ReadAll(res.Body)
 	if err != nil {
 		t.Error(err)
 	}
@@ -265,6 +264,24 @@ func TestTools_ReadJSON(t *testing.T) {
 		if !e.errorExpected && err != nil {
 			t.Errorf("%s: error not expected, but one received: %s", e.name, err.Error())
 		}
+	}
+}
+
+func TestTools_WriteJSON(t *testing.T) {
+	var testTools Tools
+
+	rr := httptest.NewRecorder()
+	payload := JSONResponse {
+		Error: false,
+		Message: "foo",
+	}
+
+	headers := make(http.Header)
+	headers.Add("FOO", "BAR")
+
+	err := testTools.WriteJSON(rr, http.StatusOK, payload, headers)
+	if err != nil {
+		t.Errorf("failed to write JSON: %v", err)
 	}
 }
 
