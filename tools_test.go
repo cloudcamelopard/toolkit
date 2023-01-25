@@ -1,6 +1,8 @@
 package toolkit
 
 import (
+	"encoding/json"
+	"errors"
 	"bytes"
 	"net/http"
 	"image"
@@ -285,3 +287,29 @@ func TestTools_WriteJSON(t *testing.T) {
 	}
 }
 
+func TestTools_ErrorJSON(t *testing.T) {
+	var testTools Tools
+
+	rr := httptest.NewRecorder()
+
+	err := testTools.ErrorJSON(rr, errors.New("some error"), http.StatusServiceUnavailable)
+	if err != nil {
+		t.Error(err)
+	}
+	
+	var payload JSONResponse
+	decoder := json.NewDecoder(rr.Body)
+	err = decoder.Decode(&payload)
+	
+	if err != nil {
+		t.Error("received error when decoding json", err)
+	}
+	
+	if !payload.Error {
+		t.Error("error set to false in json, should be true")
+	}
+
+	if rr.Code != http.StatusServiceUnavailable {
+		t.Errorf("wrong status code returned; expected 503 but got %d", rr.Code)
+	}
+}
